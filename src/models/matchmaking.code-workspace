@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"name": "matchmaking-server",
+			"path": "../.."
+		},
+		{
+			"path": "../../../matchmaking"
+		}
+	],
+	"settings": {}
+}
