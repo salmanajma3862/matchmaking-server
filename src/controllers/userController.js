@@ -2,6 +2,69 @@ import User from '../models/User.js';
 import Verification from '../models/Verification.js';
 import cloudinary from '../config/cloudinary.js';
 
+/**
+ * Sanitize user data to ensure all boolean fields are actual booleans
+ * This prevents "Cannot cast string to boolean" errors in React Native
+ */
+const sanitizeUserData = (user) => {
+  if (!user) return null;
+  
+  const userObj = user.toObject ? user.toObject() : user;
+  
+  return {
+    ...userObj,
+    // Core boolean fields
+    isEmailVerified: Boolean(userObj.isEmailVerified),
+    isDeleted: Boolean(userObj.isDeleted),
+    isOnline: Boolean(userObj.isOnline),
+    onboardingCompleted: Boolean(userObj.onboardingCompleted),
+    isVerified: Boolean(userObj.isVerified),
+    
+    // Optional boolean fields
+    smoking: userObj.smoking !== undefined ? Boolean(userObj.smoking) : false,
+    drinking: userObj.drinking !== undefined ? Boolean(userObj.drinking) : false,
+    livingWithFamily: userObj.livingWithFamily !== undefined ? Boolean(userObj.livingWithFamily) : false,
+    
+    // Notification boolean fields
+    notificationsEnabled: Boolean(userObj.notificationsEnabled),
+    messageNotifications: Boolean(userObj.messageNotifications),
+    matchNotifications: Boolean(userObj.matchNotifications),
+    familyApprovalNotifications: Boolean(userObj.familyApprovalNotifications),
+    marketingNotifications: Boolean(userObj.marketingNotifications),
+    
+    // Onboarding boolean fields
+    hasSeenIntroScreens: Boolean(userObj.hasSeenIntroScreens),
+    needsProfileUpdate: Boolean(userObj.needsProfileUpdate),
+    
+    // Sanitize photos array
+    photos: userObj.photos && Array.isArray(userObj.photos) 
+      ? userObj.photos.map(photo => ({
+          ...photo,
+          isPrimary: Boolean(photo.isPrimary || false),
+        }))
+      : [],
+    
+    // Sanitize nested objects
+    familyMode: userObj.familyMode ? {
+      ...userObj.familyMode,
+      enabled: Boolean(userObj.familyMode.enabled),
+    } : undefined,
+    
+    privacySettings: userObj.privacySettings ? {
+      hideLastSeen: Boolean(userObj.privacySettings.hideLastSeen),
+      hideProfilePhoto: Boolean(userObj.privacySettings.hideProfilePhoto),
+      hideOnlineStatus: Boolean(userObj.privacySettings.hideOnlineStatus),
+      blockStrangersFromMessaging: Boolean(userObj.privacySettings.blockStrangersFromMessaging),
+    } : undefined,
+    
+    moderation: userObj.moderation ? {
+      ...userObj.moderation,
+      autoBlurEnabled: Boolean(userObj.moderation.autoBlurEnabled),
+      shadowBanStatus: Boolean(userObj.moderation.shadowBanStatus),
+    } : undefined,
+  };
+};
+
 class UserController {
   /**
    * COMPLETE PROFILE - Handle all user information in one request
@@ -291,7 +354,7 @@ class UserController {
         success: true,
         message: 'Profile completed successfully!',
         data: {
-          user: updatedUser,
+          user: sanitizeUserData(updatedUser),
           profileCompleteness: updateData.profileCompleteness,
           photosUploaded: uploadedPhotos.length,
           verificationSubmitted: !!selfieUrl,
@@ -337,7 +400,7 @@ class UserController {
 
       res.status(200).json({
         success: true,
-        data: user,
+        data: sanitizeUserData(user),
       });
     } catch (error) {
       console.error('❌ Get user profile error:', error.message);
@@ -385,7 +448,7 @@ class UserController {
       res.status(200).json({
         success: true,
         message: 'Profile updated successfully',
-        data: updatedUser,
+        data: sanitizeUserData(updatedUser),
       });
     } catch (error) {
       console.error('❌ Update profile error:', error.message);

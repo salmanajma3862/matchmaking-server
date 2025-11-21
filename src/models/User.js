@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema(
     // Profile photos & voice intro
     photos: [
       {
-        url: String,
+        url: { type: String },
         isPrimary: { type: Boolean, default: false },
       },
     ],
@@ -40,14 +40,14 @@ const userSchema = new mongoose.Schema(
     hobbies: [String],
 
     // Life habits
-    smoking: Boolean,
-    drinking: Boolean,
+    smoking: { type: Boolean, default: false },
+    drinking: { type: Boolean, default: false },
     dietPreference: { type: String },
 
     // Family details
     familyBackground: String,
     numberOfSiblings: Number,
-    livingWithFamily: Boolean,
+    livingWithFamily: { type: Boolean, default: false },
 
     // ------------------------------------------------------------------
     // AUTH & ACCOUNT

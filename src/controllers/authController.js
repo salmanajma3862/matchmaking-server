@@ -228,7 +228,7 @@ class AuthController {
           userId: user._id,
           email: user.email,
           name: user.name,
-          isEmailVerified: true,
+          isEmailVerified: Boolean(true),
           token,
         },
       });
@@ -507,8 +507,8 @@ class AuthController {
           email: user.email,
           name: user.name,
           phone: user.phone,
-          isEmailVerified: user.isEmailVerified,
-          onboardingCompleted: user.onboardingCompleted,
+          isEmailVerified: Boolean(user.isEmailVerified),
+          onboardingCompleted: Boolean(user.onboardingCompleted),
           token,
         },
       });
@@ -724,7 +724,7 @@ class AuthController {
         });
       }
 
-      const user = await User.findById(userId).select('-passwordHash -verificationCode -passwordResetToken');
+      const user = await User.findById(userId).select('-passwordHash -verificationCode -passwordResetToken').lean();
 
       if (!user) {
         return res.status(404).json({
@@ -733,9 +733,64 @@ class AuthController {
         });
       }
 
+      // Ensure all boolean fields are actual booleans, not strings
+      const sanitizedUser = {
+        ...user,
+        isEmailVerified: Boolean(user.isEmailVerified),
+        isDeleted: Boolean(user.isDeleted),
+        isOnline: Boolean(user.isOnline),
+        onboardingCompleted: Boolean(user.onboardingCompleted),
+        smoking: user.smoking !== undefined ? Boolean(user.smoking) : false,
+        drinking: user.drinking !== undefined ? Boolean(user.drinking) : false,
+        livingWithFamily: user.livingWithFamily !== undefined ? Boolean(user.livingWithFamily) : false,
+        isVerified: Boolean(user.isVerified),
+        notificationsEnabled: Boolean(user.notificationsEnabled),
+        messageNotifications: Boolean(user.messageNotifications),
+        matchNotifications: Boolean(user.matchNotifications),
+        familyApprovalNotifications: Boolean(user.familyApprovalNotifications),
+        marketingNotifications: Boolean(user.marketingNotifications),
+        hasSeenIntroScreens: Boolean(user.hasSeenIntroScreens),
+        needsProfileUpdate: Boolean(user.needsProfileUpdate),
+      };
+
+      // Sanitize photos array
+      if (sanitizedUser.photos && Array.isArray(sanitizedUser.photos)) {
+        sanitizedUser.photos = sanitizedUser.photos.map(photo => ({
+          ...photo,
+          isPrimary: Boolean(photo.isPrimary),
+        }));
+      }
+
+      // Sanitize familyMode if present
+      if (sanitizedUser.familyMode && sanitizedUser.familyMode.enabled !== undefined) {
+        sanitizedUser.familyMode = {
+          ...sanitizedUser.familyMode,
+          enabled: Boolean(sanitizedUser.familyMode.enabled),
+        };
+      }
+
+      // Sanitize privacySettings if present
+      if (sanitizedUser.privacySettings) {
+        sanitizedUser.privacySettings = {
+          hideLastSeen: Boolean(sanitizedUser.privacySettings.hideLastSeen),
+          hideProfilePhoto: Boolean(sanitizedUser.privacySettings.hideProfilePhoto),
+          hideOnlineStatus: Boolean(sanitizedUser.privacySettings.hideOnlineStatus),
+          blockStrangersFromMessaging: Boolean(sanitizedUser.privacySettings.blockStrangersFromMessaging),
+        };
+      }
+
+      // Sanitize moderation if present
+      if (sanitizedUser.moderation) {
+        sanitizedUser.moderation = {
+          ...sanitizedUser.moderation,
+          autoBlurEnabled: Boolean(sanitizedUser.moderation.autoBlurEnabled),
+          shadowBanStatus: Boolean(sanitizedUser.moderation.shadowBanStatus),
+        };
+      }
+
       res.status(200).json({
         success: true,
-        data: user,
+        data: sanitizedUser,
       });
     } catch (error) {
       console.error('❌ Get current user error:', error.message);

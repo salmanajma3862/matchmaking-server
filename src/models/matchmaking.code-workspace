@@ -5,7 +5,7 @@
 			"path": "../.."
 		},
 		{
-			"path": "../../../matchmaking"
+			"path": "../../../DummyApp"
 		}
 	],
 	"settings": {}
