@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import Verification from '../models/Verification.js';
 import cloudinary from '../config/cloudinary.js';
+import { getRecommendedUsers } from '../services/algorithm.js';
 
 /**
  * Sanitize user data to ensure all boolean fields are actual booleans
@@ -467,6 +468,39 @@ class UserController {
       res.status(500).json({
         success: false,
         message: 'Failed to update profile',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
+    }
+  }
+
+  /**
+   * GET FEED - Get recommended users for the feed
+   */
+  async getFeed(req, res) {
+    try {
+      const userId = req.user.userId;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+
+      console.log(`🔍 Fetching feed for user: ${userId}, page: ${page}`);
+
+      const recommendations = await getRecommendedUsers(userId, page, limit);
+
+      // Sanitize the recommendations
+      const sanitizedRecommendations = recommendations.map(user => sanitizeUserData(user));
+
+      res.status(200).json({
+        success: true,
+        data: sanitizedRecommendations,
+        page,
+        limit,
+        hasMore: recommendations.length === limit
+      });
+    } catch (error) {
+      console.error('❌ Get feed error:', error.message);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch feed',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }

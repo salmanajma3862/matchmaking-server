@@ -14,6 +14,9 @@ router.post(
   userController.completeProfile
 );
 
+// Get recommended users feed
+router.get('/feed', authenticate, userController.getFeed);
+
 // Get user profile by ID
 router.get('/profile/:userId', authenticate, userController.getUserProfile);
 
