@@ -98,6 +98,7 @@ class AuthController {
       res.status(201).json({
         success: true,
         message: 'Signup successful! Please check your email for verification code.',
+        user: newUser, // Required for Android App AuthRepository
         data: {
           userId: newUser._id,
           email: newUser.email,
@@ -120,12 +121,14 @@ class AuthController {
    */
   async verifyEmail(req, res) {
     try {
-      const { email, verificationCode } = req.body;
+      // Accept both 'code' (from Android) and 'verificationCode' (legacy/web)
+      const { email, verificationCode, code } = req.body;
+      const codeToVerify = verificationCode || code;
 
       console.log('🔍 Email verification attempt for:', email);
 
       // Validation
-      if (!email || !verificationCode) {
+      if (!email || !codeToVerify) {
         return res.status(400).json({
           success: false,
           message: 'Email and verification code are required',
@@ -169,7 +172,7 @@ class AuthController {
       }
 
       // Verify code
-      if (user.verificationCode !== verificationCode) {
+      if (user.verificationCode !== codeToVerify) {
         console.log('❌ Invalid verification code for:', email);
         
         // Increment failed OTP attempts
@@ -224,6 +227,9 @@ class AuthController {
       res.status(200).json({
         success: true,
         message: 'Email verified successfully!',
+        isVerified: true, // Required for Android App AuthRepository
+        token, // Useful if we update app to save token
+        user, // Useful if we update app to save user
         data: {
           userId: user._id,
           email: user.email,
@@ -441,9 +447,28 @@ class AuthController {
       // Check if email is verified
       if (!user.isEmailVerified) {
         console.log('⚠️ Email not verified for:', email);
+
+        // Generate new verification code
+        const verificationCode = generateVerificationCode();
+        const verificationCodeExpiry = generateCodeExpiry(2);
+
+        user.verificationCode = verificationCode;
+        user.verificationCodeExpiry = verificationCodeExpiry;
+        await user.save();
+
+        // Send verification email
+        try {
+          // Use resendVerificationEmail or sendVerificationEmail depending on what's available/appropriate
+          // Assuming resendVerificationEmail is appropriate here as it's a subsequent attempt
+          await emailService.resendVerificationEmail(email, user.name, verificationCode);
+          console.log('✅ Verification code sent to:', email);
+        } catch (emailError) {
+          console.error('⚠️ Failed to send verification email:', emailError.message);
+        }
+
         return res.status(403).json({
           success: false,
-          message: 'Please verify your email before logging in',
+          message: 'Please verify your email before logging in. A new verification code has been sent.',
           requiresVerification: true,
         });
       }
@@ -502,6 +527,8 @@ class AuthController {
       res.status(200).json({
         success: true,
         message: 'Login successful!',
+        token, // Required for Android App AuthRepository
+        user, // Required for Android App AuthRepository
         data: {
           userId: user._id,
           email: user.email,

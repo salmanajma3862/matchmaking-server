@@ -30,9 +30,12 @@ const selfieStorage = new CloudinaryStorage({
 const fileFilter = (req, file, cb) => {
   const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
   
+  console.log(`📝 Uploading file: ${file.originalname}, Mimetype: ${file.mimetype}`);
+
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
+    console.warn(`❌ Rejected file type: ${file.mimetype} for file: ${file.originalname}`);
     cb(new Error('Invalid file type. Only JPEG, JPG, PNG, and WEBP are allowed.'), false);
   }
 };

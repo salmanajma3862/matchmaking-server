@@ -19,8 +19,8 @@ const userSchema = new mongoose.Schema(
     sect: String,
     maritalStatus: {
       type: String,
-      enum: ["single", "divorced", "widowed"],
-      default: "single",
+      enum: ["Single", "Divorced", "Widowed", "Separated"],
+      default: "Single",
     },
     education: String,
     profession: String,
