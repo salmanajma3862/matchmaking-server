@@ -95,6 +95,12 @@ class UserController {
 
       // Parse JSON data from request body
       const {
+        // Basic Profile
+        name,
+        phone,
+        gender,
+        dob,
+
         // Personal Information
         bio,
         height,
@@ -274,6 +280,12 @@ class UserController {
 
       // Update user profile with all information
       const updateData = {
+        // Basic Profile
+        ...(name && { name }),
+        ...(phone && { phone }),
+        ...(gender && { gender }),
+        ...(dob && { dob: new Date(dob) }),
+
         // Personal Information
         ...(bio && { bio }),
         ...(height && { height: parseFloat(height) }),

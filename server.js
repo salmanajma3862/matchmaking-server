@@ -13,6 +13,14 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Request Logger
+app.use((req, res, next) => {
+  console.log(`📥 ${req.method} ${req.url}`);
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Body:', JSON.stringify(req.body, null, 2));
+  next();
+});
+
 // CORS (add if needed)
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -68,13 +76,23 @@ const connectDB = async () => {
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
-  await connectDB();
-  
-  app.listen(PORT, () => {
+  // Start listening IMMEDIATELY, don't wait for DB
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server is running on port ${PORT}`);
     console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+    console.log(`🌐 Network: Accessible via 0.0.0.0`);
   });
+
+  // Connect to DB in background
+  try {
+    console.log('🔌 Connecting to MongoDB...');
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log('✅ MongoDB connected successfully');
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error.message);
+    // Don't exit, keep server running so we can debug network
+  }
 };
 
 startServer();
