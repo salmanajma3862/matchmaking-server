@@ -30,11 +30,17 @@ const MatchSchema = new mongoose.Schema(
         "unmatched",   // unmatched later
         "blocked",     // blocked by either
       ],
-      default: "pending",
+      default: "matched",
       index: true,
     },
 
-    matchedAt: { type: Date, default: null },
+    matchType: {
+      type: String,
+      enum: ["normal", "super_match"],
+      default: "normal",
+    },
+
+    matchedAt: { type: Date, default: Date.now },
     unmatchedAt: { type: Date, default: null },
     unmatchedBy: {
       type: mongoose.Schema.Types.ObjectId,
