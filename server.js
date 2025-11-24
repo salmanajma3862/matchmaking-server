@@ -1,14 +1,29 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import http from 'http';
+import { Server } from 'socket.io';
 import authRoutes from './src/routes/authRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
 import swipeRoutes from './src/routes/swipeRoutes.js';
+import chatRoutes from './src/routes/chatRoutes.js';
+import { socketHandler } from './src/sockets/socketHandler.js';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"]
+  }
+});
+
+// Initialize Socket Handler
+socketHandler(io);
+app.set('io', io);
 
 // Middleware
 app.use(express.json());
@@ -34,6 +49,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/swipe', swipeRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -76,16 +92,16 @@ const connectDB = async () => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-
 const startServer = async () => {
   // Start listening IMMEDIATELY, don't wait for DB
-  app.listen(PORT, '0.0.0.0', () => {
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server is running on port ${PORT}`);
     console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔗 Health check: http://localhost:${PORT}/health`);
     console.log(`🌐 Network: Accessible via 0.0.0.0`);
   });
 
+  // Connect to DB in background
   // Connect to DB in background
   try {
     console.log('🔌 Connecting to MongoDB...');

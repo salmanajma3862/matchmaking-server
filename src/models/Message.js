@@ -58,6 +58,13 @@ const MessageSchema = new mongoose.Schema(
       default: {},
     },
 
+    // Reply
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
+
     // If edited message
     edited: { type: Boolean, default: false },
     editedAt: { type: Date, default: null },

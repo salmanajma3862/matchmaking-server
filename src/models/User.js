@@ -303,6 +303,7 @@ const userSchema = new mongoose.Schema(
     // ------------------------------------------------------------------
     // META
     // ------------------------------------------------------------------
+    isOnline: { type: Boolean, default: false },
     lastActive: Date,
   },
   { timestamps: true }
