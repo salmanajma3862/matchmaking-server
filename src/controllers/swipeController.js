@@ -1,6 +1,7 @@
 import Swipe from '../models/Swipe.js';
 import Match from '../models/Match.js';
 import User from '../models/User.js';
+import Conversation from '../models/Conversation.js';
 
 class SwipeController {
   /**
@@ -59,6 +60,7 @@ class SwipeController {
 
       // If action is like or superlike, check for a match
       if (action === 'like' || action === 'superlike') {
+        console.log(`🔍 Checking for reciprocal swipe from ${targetUserId}...`);
         const reciprocalSwipe = await Swipe.findOne({
           swiper: targetUserId,
           target: currentUserId,
@@ -66,6 +68,7 @@ class SwipeController {
         });
 
         if (reciprocalSwipe) {
+          console.log(`✨ Reciprocal swipe found! Action: ${reciprocalSwipe.action}`);
           isMatch = true;
           
           // Ensure consistent ordering for userA/userB to prevent duplicates
@@ -87,10 +90,35 @@ class SwipeController {
             
             await match.save();
             console.log(`🎉 It's a match! Users: ${currentUserId} & ${targetUserId}`);
+
+            // Create a Conversation for the new match
+            try {
+                const existingConv = await Conversation.findOne({
+                    participants: { $all: [userA, userB] },
+                    isOneToOne: true
+                });
+
+                if (!existingConv) {
+                    const newConv = new Conversation({
+                        participants: [userA, userB],
+                        isOneToOne: true,
+                        unreadCount: new Map([[userA.toString(), 0], [userB.toString(), 0]])
+                    });
+                    await newConv.save();
+                    console.log(`💬 Conversation created for match: ${newConv._id}`);
+                } else {
+                    console.log(`💬 Conversation already exists: ${existingConv._id}`);
+                }
+            } catch (convError) {
+                console.error('❌ Error creating conversation for match:', convError);
+            }
+
           } else {
+             console.log(`⚠️ Match already exists for ${userA} & ${userB}`);
              // If match exists but was unmatched/blocked, maybe reactivate?
              // For now, just return the existing match
              if (match.status !== 'matched') {
+                 console.log(`🔄 Reactivating match (previous status: ${match.status})`);
                  match.status = 'matched';
                  match.matchedAt = new Date();
                  await match.save();
@@ -98,6 +126,8 @@ class SwipeController {
           }
           
           matchData = match;
+        } else {
+            console.log(`⏳ No reciprocal swipe found yet.`);
         }
       }
 

@@ -5,7 +5,7 @@ import User from '../models/User.js';
 export const sendMessage = async (req, res) => {
   try {
     const { conversationId, text, media, messageType, replyTo } = req.body;
-    const senderId = req.user._id; // Assuming auth middleware sets req.user
+    const senderId = req.user.userId; // Assuming auth middleware sets req.user
 
     const message = new Message({
       conversationId,
@@ -70,7 +70,7 @@ export const editMessage = async (req, res) => {
   try {
     const { messageId } = req.params;
     const { text } = req.body;
-    const userId = req.user._id;
+    const userId = req.user.userId;
 
     const message = await Message.findById(messageId);
 
@@ -101,7 +101,7 @@ export const deleteMessage = async (req, res) => {
   try {
     const { messageId } = req.params;
     const { deleteForEveryone } = req.body; // boolean
-    const userId = req.user._id;
+    const userId = req.user.userId;
 
     const message = await Message.findById(messageId);
 
@@ -144,7 +144,7 @@ export const getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const { page = 1, limit = 20 } = req.query;
-    const userId = req.user._id;
+    const userId = req.user.userId;
 
     const messages = await Message.find({ conversationId })
       .sort({ createdAt: -1 })
@@ -169,12 +169,15 @@ export const getMessages = async (req, res) => {
 
 export const getConversations = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.user.userId;
+        console.log(`📥 Fetching conversations for user: ${userId}`);
+        
         const conversations = await Conversation.find({ participants: userId })
             .populate('participants', 'name photos isOnline lastActive')
             .populate('lastMessage')
             .sort({ lastMessageAt: -1 });
         
+        console.log(`✅ Found ${conversations.length} conversations for user ${userId}`);
         res.json(conversations);
     } catch (error) {
         console.error('Error fetching conversations:', error);
@@ -185,7 +188,7 @@ export const getConversations = async (req, res) => {
 export const createConversation = async (req, res) => {
     try {
         const { participantId } = req.body;
-        const userId = req.user._id;
+        const userId = req.user.userId;
 
         // Check if conversation already exists
         const existingConversation = await Conversation.findOne({
@@ -214,7 +217,7 @@ export const createConversation = async (req, res) => {
 export const markAsRead = async (req, res) => {
     try {
         const { conversationId } = req.body;
-        const userId = req.user._id;
+        const userId = req.user.userId;
 
         const conversation = await Conversation.findById(conversationId);
         if (!conversation) {
