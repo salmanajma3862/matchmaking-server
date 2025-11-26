@@ -1,6 +1,7 @@
 import Message from '../models/Message.js';
 import Conversation from '../models/Conversation.js';
 import User from '../models/User.js';
+import mongoose from 'mongoose';
 
 export const sendMessage = async (req, res) => {
   try {
@@ -173,12 +174,44 @@ export const getConversations = async (req, res) => {
         console.log(`📥 Fetching conversations for user: ${userId}`);
         
         const conversations = await Conversation.find({ participants: userId })
-            .populate('participants', 'name photos isOnline lastActive')
-            .populate('lastMessage')
+            .populate({ path: 'participants', select: 'name photos isOnline lastActive', model: 'User' })
+            .populate({ 
+                path: 'lastMessage', 
+                model: 'Message',
+                select: '-replyTo',
+                populate: {
+                    path: 'sender',
+                    select: 'name photos',
+                    model: 'User'
+                }
+            })
             .sort({ lastMessageAt: -1 });
         
         console.log(`✅ Found ${conversations.length} conversations for user ${userId}`);
-        res.json(conversations);
+        
+        // Filter out conversations where population failed or participants are missing
+        const validConversations = conversations.filter(conv => {
+            return conv.participants && 
+                   conv.participants.length > 0 && 
+                   conv.participants.every(p => p && typeof p === 'object' && p._id);
+        });
+
+        if (validConversations.length < conversations.length) {
+            console.warn(`⚠️ Filtered out ${conversations.length - validConversations.length} invalid conversations`);
+        }
+
+        if (validConversations.length > 0) {
+             // Debug log to check if population worked
+             const samplePart = validConversations[0].participants[0];
+             console.log('Sample participant type:', typeof samplePart);
+             if (typeof samplePart === 'string' || samplePart instanceof mongoose.Types.ObjectId) {
+                 console.error('❌ POPULATION FAILED: Participants are still IDs');
+             } else {
+                 console.log('✅ Population successful');
+             }
+        }
+
+        res.json(validConversations);
     } catch (error) {
         console.error('Error fetching conversations:', error);
         res.status(500).json({ message: 'Server error' });
@@ -197,6 +230,7 @@ export const createConversation = async (req, res) => {
         });
 
         if (existingConversation) {
+            await existingConversation.populate({ path: 'participants', select: 'name photos isOnline lastActive', model: 'User' });
             return res.json(existingConversation);
         }
 
@@ -206,6 +240,7 @@ export const createConversation = async (req, res) => {
         });
 
         await conversation.save();
+        await conversation.populate({ path: 'participants', select: 'name photos isOnline lastActive', model: 'User' });
         res.status(201).json(conversation);
 
     } catch (error) {
