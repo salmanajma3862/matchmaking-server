@@ -70,7 +70,7 @@ class SwipeController {
         if (reciprocalSwipe) {
           console.log(`✨ Reciprocal swipe found! Action: ${reciprocalSwipe.action}`);
           isMatch = true;
-          
+
           // Ensure consistent ordering for userA/userB to prevent duplicates
           const [userA, userB] = [currentUserId, targetUserId].sort();
 
@@ -87,47 +87,51 @@ class SwipeController {
               matchType: action === 'superlike' || reciprocalSwipe.action === 'superlike' ? 'super_match' : 'normal',
               matchedAt: new Date()
             });
-            
+
             await match.save();
             console.log(`🎉 It's a match! Users: ${currentUserId} & ${targetUserId}`);
 
             // Create a Conversation for the new match
             try {
-                const existingConv = await Conversation.findOne({
-                    participants: { $all: [userA, userB] },
-                    isOneToOne: true
-                });
+              const existingConv = await Conversation.findOne({
+                participants: { $all: [userA, userB] },
+                isOneToOne: true
+              });
 
-                if (!existingConv) {
-                    const newConv = new Conversation({
-                        participants: [userA, userB],
-                        isOneToOne: true,
-                        unreadCount: new Map([[userA.toString(), 0], [userB.toString(), 0]])
-                    });
-                    await newConv.save();
-                    console.log(`💬 Conversation created for match: ${newConv._id}`);
-                } else {
-                    console.log(`💬 Conversation already exists: ${existingConv._id}`);
-                }
+              if (!existingConv) {
+                const newConv = new Conversation({
+                  participants: [userA, userB],
+                  isOneToOne: true,
+                  unreadCount: new Map([[userA.toString(), 0], [userB.toString(), 0]])
+                });
+                await newConv.save();
+                console.log(`💬 Conversation created for match: ${newConv._id}`);
+              } else {
+                console.log(`💬 Conversation already exists: ${existingConv._id}`);
+              }
             } catch (convError) {
-                console.error('❌ Error creating conversation for match:', convError);
+              console.error('❌ Error creating conversation for match:', convError);
             }
 
+            // Increment totalMatches for both users
+            await User.findByIdAndUpdate(userA, { $inc: { totalMatches: 1 } });
+            await User.findByIdAndUpdate(userB, { $inc: { totalMatches: 1 } });
+
           } else {
-             console.log(`⚠️ Match already exists for ${userA} & ${userB}`);
-             // If match exists but was unmatched/blocked, maybe reactivate?
-             // For now, just return the existing match
-             if (match.status !== 'matched') {
-                 console.log(`🔄 Reactivating match (previous status: ${match.status})`);
-                 match.status = 'matched';
-                 match.matchedAt = new Date();
-                 await match.save();
-             }
+            console.log(`⚠️ Match already exists for ${userA} & ${userB}`);
+            // If match exists but was unmatched/blocked, maybe reactivate?
+            // For now, just return the existing match
+            if (match.status !== 'matched') {
+              console.log(`🔄 Reactivating match (previous status: ${match.status})`);
+              match.status = 'matched';
+              match.matchedAt = new Date();
+              await match.save();
+            }
           }
-          
+
           matchData = match;
         } else {
-            console.log(`⏳ No reciprocal swipe found yet.`);
+          console.log(`⏳ No reciprocal swipe found yet.`);
         }
       }
 
@@ -285,7 +289,7 @@ class SwipeController {
         status: 'matched',
       });
 
-      const matchedUserIds = matches.map(m => 
+      const matchedUserIds = matches.map(m =>
         m.userA.toString() === currentUserId ? m.userB.toString() : m.userA.toString()
       );
 
@@ -332,7 +336,7 @@ class SwipeController {
         status: 'matched',
       });
 
-      const matchedUserIds = matches.map(m => 
+      const matchedUserIds = matches.map(m =>
         m.userA.toString() === currentUserId ? m.userB.toString() : m.userA.toString()
       );
 
@@ -387,7 +391,7 @@ class SwipeController {
       const formattedMatches = matches.map(match => {
         const isUserA = match.userA._id.toString() === currentUserId;
         const otherUser = isUserA ? match.userB : match.userA;
-        
+
         return {
           matchId: match._id,
           matchedAt: match.createdAt,
