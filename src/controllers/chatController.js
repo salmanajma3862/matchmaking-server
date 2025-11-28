@@ -242,8 +242,10 @@ export const getConversations = async (req, res) => {
     // Sanitize lastMessage: if population failed, it might be an ID. Ensure it's null in that case.
     const sanitizedConversations = validConversations.map(conv => {
       const convObj = conv.toObject ? conv.toObject() : conv;
-      if (convObj.lastMessage && (typeof convObj.lastMessage === 'string' || convObj.lastMessage instanceof mongoose.Types.ObjectId)) {
-        console.warn(`[Chat] lastMessage population failed for conv ${convObj._id}, setting to null. Value: ${convObj.lastMessage}`);
+      // Check if lastMessage is a populated object (must have _id property)
+      // If it's just an ID (string or ObjectId), it won't have an _id property.
+      if (convObj.lastMessage && !convObj.lastMessage._id) {
+        console.warn(`[Chat] lastMessage population failed for conv ${convObj._id}, setting to null. Value type: ${typeof convObj.lastMessage}`);
         convObj.lastMessage = null;
       }
       return convObj;
