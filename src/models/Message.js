@@ -18,6 +18,7 @@ const MessageSchema = new mongoose.Schema(
     text: { type: String, default: "" },
 
     media: {
+      mediaId: { type: String, default: null }, // Blob Name in Azure
       imageUrl: { type: String, default: null },
       audioUrl: { type: String, default: null },
       videoUrl: { type: String, default: null },
