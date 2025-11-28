@@ -158,16 +158,33 @@ const userSchema = new mongoose.Schema(
     // ------------------------------------------------------------------
     conversations: [
       {
-        toxicCount: { type: Number, default: 0 },
-        lastWarningAt: Date,
-        autoBlurEnabled: { type: Boolean, default: true },
-        safetyScore: { type: Number, default: 100 },
-        reportsMade: { type: Number, default: 0 },
-        reportsReceived: { type: Number, default: 0 },
-        shadowBanStatus: { type: Boolean, default: false },
-        moderationNotes: String,
+        conversationId: { type: mongoose.Schema.Types.ObjectId, ref: "Conversation" },
+        lastMessageAt: Date,
       },
     ],
+
+    totalMessagesSent: { type: Number, default: 0 },
+    totalMessagesReceived: { type: Number, default: 0 },
+    totalConversations: { type: Number, default: 0 },
+    totalMatches: { type: Number, default: 0 },
+    profileViews: { type: Number, default: 0 },
+    averageResponseTime: Number,
+    lastMessageSentAt: Date,
+    lastMessageReceivedAt: Date,
+
+    // ------------------------------------------------------------------
+    // SAFECHAT MODE / MODERATION
+    // ------------------------------------------------------------------
+    moderation: {
+      toxicCount: { type: Number, default: 0 },
+      lastWarningAt: Date,
+      autoBlurEnabled: { type: Boolean, default: true },
+      safetyScore: { type: Number, default: 100 },
+      reportsMade: { type: Number, default: 0 },
+      reportsReceived: { type: Number, default: 0 },
+      shadowBanStatus: { type: Boolean, default: false },
+      moderationNotes: String,
+    },
 
     // ------------------------------------------------------------------
     // FAMILY MODE

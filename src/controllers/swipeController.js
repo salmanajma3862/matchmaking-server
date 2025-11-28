@@ -114,8 +114,11 @@ class SwipeController {
             }
 
             // Increment totalMatches for both users
-            await User.findByIdAndUpdate(userA, { $inc: { totalMatches: 1 } });
-            await User.findByIdAndUpdate(userB, { $inc: { totalMatches: 1 } });
+            console.log(`📈 Incrementing totalMatches for ${userA} and ${userB}`);
+            const updateA = await User.findByIdAndUpdate(userA, { $inc: { totalMatches: 1 } }, { new: true });
+            const updateB = await User.findByIdAndUpdate(userB, { $inc: { totalMatches: 1 } }, { new: true });
+            console.log(`✅ User A (${userA}) totalMatches: ${updateA?.totalMatches}`);
+            console.log(`✅ User B (${userB}) totalMatches: ${updateB?.totalMatches}`);
 
           } else {
             console.log(`⚠️ Match already exists for ${userA} & ${userB}`);
