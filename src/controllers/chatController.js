@@ -25,12 +25,23 @@ export const sendMessage = async (req, res) => {
       console.log('[Chat] No file received in request');
     }
 
+    let finalMessageType = messageType;
+    if (req.file) {
+      if (req.file.mimetype.startsWith('image/')) {
+        finalMessageType = 'image';
+      } else if (req.file.mimetype.startsWith('audio/')) {
+        finalMessageType = 'audio';
+      } else {
+        finalMessageType = 'file';
+      }
+    }
+
     const message = new Message({
       conversationId,
       sender: senderId,
       text,
       media,
-      messageType: req.file ? 'image' : messageType, // Default to image if file uploaded for now, or use logic
+      messageType: finalMessageType,
       replyTo,
     });
 
@@ -43,9 +54,18 @@ export const sendMessage = async (req, res) => {
     }
 
     // Update Conversation
+    let lastMessageText = text;
+    if (!lastMessageText) {
+      switch (finalMessageType) {
+        case 'image': lastMessageText = 'Sent an image'; break;
+        case 'audio': lastMessageText = 'Sent an audio message'; break;
+        default: lastMessageText = 'Sent a message';
+      }
+    }
+
     await Conversation.findByIdAndUpdate(conversationId, {
       lastMessage: message._id,
-      lastMessageText: text || (messageType === 'image' ? 'Sent an image' : 'Sent a message'),
+      lastMessageText: lastMessageText,
       lastMessageAt: new Date(),
       $inc: { [`unreadCount.${senderId}`]: 0 }, // Reset sender's unread? No, increment others.
       // Actually, increment unread for others.
@@ -64,20 +84,30 @@ export const sendMessage = async (req, res) => {
 
     // Emit socket event
     const io = req.app.get('io');
-    io.to(conversationId).emit('new_message', message);
+    // We need to add the SAS token to the emitted message so the sender sees it immediately
+    const messageObj = message.toObject();
+    if (messageObj.media && messageObj.media.mediaId) {
+      if (finalMessageType === 'image') {
+        messageObj.media.imageUrl = getFileUrl(messageObj.media.mediaId);
+      } else if (finalMessageType === 'audio') {
+        messageObj.media.audioUrl = getFileUrl(messageObj.media.mediaId);
+      }
+    }
+
+    io.to(conversationId).emit('new_message', messageObj);
 
     // Also emit to participants' personal rooms for notification if they are not in the conversation room
     conversation.participants.forEach(participantId => {
       if (participantId.toString() !== senderId.toString()) {
         io.to(participantId.toString()).emit('notification', {
           type: 'new_message',
-          message,
+          message: messageObj,
           conversationId
         });
       }
     });
 
-    res.status(201).json(message);
+    res.status(201).json(messageObj);
   } catch (error) {
     console.error('Error sending message:', error);
     res.status(500).json({ message: 'Server error' });
@@ -182,8 +212,12 @@ export const getMessages = async (req, res) => {
     }).map(msg => {
       const msgObj = msg.toObject();
       if (msgObj.media && msgObj.media.mediaId) {
-        console.log(`[Chat] Generating SAS for message ${msgObj._id}, mediaId: ${msgObj.media.mediaId}`);
-        msgObj.media.imageUrl = getFileUrl(msgObj.media.mediaId);
+        // console.log(`[Chat] Generating SAS for message ${msgObj._id}, mediaId: ${msgObj.media.mediaId}`);
+        if (msgObj.messageType === 'image') {
+          msgObj.media.imageUrl = getFileUrl(msgObj.media.mediaId);
+        } else if (msgObj.messageType === 'audio') {
+          msgObj.media.audioUrl = getFileUrl(msgObj.media.mediaId);
+        }
       }
       return msgObj;
     });
