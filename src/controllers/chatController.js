@@ -50,7 +50,10 @@ export const sendMessage = async (req, res) => {
     // Populate sender and replyTo for the response
     await message.populate('sender', 'name photos');
     if (replyTo) {
-      await message.populate('replyTo');
+      await message.populate({
+        path: 'replyTo',
+        populate: { path: 'sender', select: 'name photos', model: 'User' }
+      });
     }
 
     // Update Conversation
@@ -134,6 +137,14 @@ export const editMessage = async (req, res) => {
     message.edited = true;
     message.editedAt = new Date();
     await message.save();
+
+    await message.populate('sender', 'name photos');
+    if (message.replyTo) {
+      await message.populate({
+        path: 'replyTo',
+        populate: { path: 'sender', select: 'name photos', model: 'User' }
+      });
+    }
 
     const io = req.app.get('io');
     io.to(message.conversationId.toString()).emit('message_updated', message);
@@ -248,7 +259,10 @@ export const getConversations = async (req, res) => {
       .populate({
         path: 'lastMessage',
         model: 'Message',
-        populate: { path: 'sender', select: 'name photos', model: 'User' }
+        populate: [
+          { path: 'sender', select: 'name photos', model: 'User' },
+          { path: 'replyTo', model: 'Message', populate: { path: 'sender', select: 'name photos', model: 'User' } }
+        ]
       })
       .sort({ lastMessageAt: -1 });
 
@@ -317,7 +331,10 @@ export const createConversation = async (req, res) => {
       await existingConversation.populate({
         path: 'lastMessage',
         model: 'Message',
-        populate: { path: 'sender', select: 'name photos', model: 'User' }
+        populate: [
+          { path: 'sender', select: 'name photos', model: 'User' },
+          { path: 'replyTo', model: 'Message', populate: { path: 'sender', select: 'name photos', model: 'User' } }
+        ]
       });
 
       // Sanitize lastMessage if population failed
