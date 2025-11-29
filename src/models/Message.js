@@ -16,6 +16,7 @@ const MessageSchema = new mongoose.Schema(
 
     // Text / Media
     text: { type: String, default: "" },
+    originalContent: { type: String, select: false }, // Hidden by default
 
     media: {
       mediaId: { type: String, default: null }, // Blob Name in Azure

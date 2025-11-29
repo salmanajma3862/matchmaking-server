@@ -161,9 +161,13 @@ export const deleteMessage = async (req, res) => {
       if (message.sender.toString() !== userId.toString()) {
         return res.status(403).json({ message: 'Not authorized to delete this message for everyone' });
       }
+
+      // Save original content before overwriting
+      message.originalContent = message.text;
+
       message.isDeletedForEveryone = true;
       message.deletedAt = new Date();
-      message.text = 'This message was deleted';
+      message.text = 'message deleted for everyone';
       message.media = null;
     } else {
       // Delete for me only
@@ -174,10 +178,15 @@ export const deleteMessage = async (req, res) => {
 
     const io = req.app.get('io');
     if (deleteForEveryone) {
-      io.to(message.conversationId.toString()).emit('message_deleted', { messageId, deleteForEveryone: true });
+      // Emit the updated message structure so clients can update their UI
+      io.to(message.conversationId.toString()).emit('message_deleted', {
+        messageId,
+        deleteForEveryone: true,
+        text: message.text,
+        isDeletedForEveryone: true
+      });
     } else {
-      // Only notify the user who deleted it (optional, or just return success)
-      // But if the user has multiple devices, we might want to emit to their personal room
+      // Only notify the user who deleted it
       io.to(userId.toString()).emit('message_deleted', { messageId, deleteForEveryone: false });
     }
 
