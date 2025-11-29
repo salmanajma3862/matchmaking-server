@@ -305,7 +305,19 @@ export const createConversation = async (req, res) => {
 
     if (existingConversation) {
       await existingConversation.populate({ path: 'participants', select: 'name photos isOnline lastActive', model: 'User' });
-      return res.json(existingConversation);
+      await existingConversation.populate({
+        path: 'lastMessage',
+        model: 'Message',
+        populate: { path: 'sender', select: 'name photos', model: 'User' }
+      });
+
+      // Sanitize lastMessage if population failed
+      const convObj = existingConversation.toObject();
+      if (convObj.lastMessage && !convObj.lastMessage._id) {
+        convObj.lastMessage = null;
+      }
+
+      return res.json(convObj);
     }
 
     const conversation = new Conversation({
