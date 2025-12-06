@@ -197,9 +197,11 @@ class FamilyController {
                 $addToSet: { familyMembers: userId }
             });
 
-            // Mark invite as used (optional, if one-time use)
-            // invite.status = 'used';
-            // await invite.save();
+            // Mark invite as used
+            invite.status = 'used';
+            invite.usedBy = userId;
+            invite.usedAt = new Date();
+            await invite.save();
 
             res.status(200).json({
                 success: true,
@@ -252,6 +254,49 @@ class FamilyController {
         } catch (error) {
             console.error("❌ Get child data error:", error.message);
             res.status(500).json({ success: false, message: "Failed to fetch data" });
+        }
+    }
+
+    /**
+     * GET MY INVITE CODES - Fetch all invite codes created by the current user
+     */
+    async getMyInviteCodes(req, res) {
+        try {
+            const userId = req.user.userId;
+
+            const invites = await FamilyInvite.find({ inviterId: userId })
+                .populate('usedBy', 'name email')
+                .sort({ createdAt: -1 });
+
+            // Calculate readable duration/expiry info
+            const invitesWithMeta = invites.map(invite => {
+                const now = new Date();
+                const expiresAt = new Date(invite.expiresAt);
+                const isExpired = expiresAt < now && invite.status === 'active';
+
+                return {
+                    _id: invite._id,
+                    code: invite.code,
+                    scope: invite.scope,
+                    expiresAt: invite.expiresAt,
+                    status: isExpired ? 'expired' : invite.status,
+                    usedBy: invite.usedBy ? {
+                        _id: invite.usedBy._id,
+                        name: invite.usedBy.name,
+                        email: invite.usedBy.email
+                    } : null,
+                    usedAt: invite.usedAt,
+                    createdAt: invite.createdAt
+                };
+            });
+
+            res.status(200).json({
+                success: true,
+                data: invitesWithMeta,
+            });
+        } catch (error) {
+            console.error("❌ Get my invite codes error:", error.message);
+            res.status(500).json({ success: false, message: "Failed to fetch invite codes" });
         }
     }
 }
