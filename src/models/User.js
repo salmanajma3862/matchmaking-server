@@ -206,6 +206,8 @@ const userSchema = new mongoose.Schema(
       // Fields for the Family Member (Child)
       familyRelation: { type: String, enum: ["father", "mother", "sister", "brother", "guardian", "other"] },
       familyRelationDetail: { type: String, maxlength: 25 },
+      // Permissions granted to this family member (when role is "family")
+      permissions: [{ type: String }], // e.g. ["view_matches", "chat"]
 
       parents: [
         {

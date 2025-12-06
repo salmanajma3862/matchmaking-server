@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import FamilyInvite from "../models/FamilyInvite.js";
+import Conversation from "../models/Conversation.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { generateVerificationCode } from "../utils/verificationUtils.js";
@@ -177,9 +178,9 @@ class FamilyController {
             user.role = "family";
             user.linkedChild = invite.inviterId;
             user.familyInviteRateLimit = { attempts: 0, blockUntil: null }; // Reset limits
-            // Store scope if needed, for now we rely on the child's permission or just the role
-            // Ideally, we should store the scope in the user object or a separate FamilyLink model
-            // For simplicity, let's assume 'family' role implies basic access, and we can store specific permissions later
+            // Store the permissions from the invite on the family member's record
+            user.familyMode = user.familyMode || {};
+            user.familyMode.permissions = invite.scope || ["view_matches"];
 
             await user.save();
 
@@ -216,6 +217,7 @@ class FamilyController {
 
     /**
      * GET CHILD DATA - Fetch restricted data for the family dashboard
+     * Returns data based on the family member's permissions
      */
     async getChildData(req, res) {
         try {
@@ -226,30 +228,83 @@ class FamilyController {
                 return res.status(403).json({ success: false, message: "Access denied" });
             }
 
+            // Get the family member's permissions
+            const permissions = user.familyMode?.permissions || ["view_matches"];
+
             const child = await User.findById(user.linkedChild)
-                .select("name photos matches profileCompleteness")
+                .select("name photos matches profileCompleteness conversations")
                 .populate({
                     path: "matches.userId",
-                    select: "name photos age city profession", // Restricted view of matches
+                    select: "name photos city profession",
                 });
 
             if (!child) {
                 return res.status(404).json({ success: false, message: "Linked account not found" });
             }
 
-            // Filter matches based on scope (if we stored scope)
-            // For now, return all matches but with limited fields
+            // Build response based on permissions
+            const responseData = {
+                permissions: permissions,
+                childProfile: {
+                    id: child._id,
+                    name: child.name,
+                    photo: child.photos?.find((p) => p.isPrimary)?.url || child.photos?.[0]?.url,
+                    completeness: child.profileCompleteness,
+                },
+                matches: null,
+                conversations: null,
+            };
+
+            // Include matches if has view_matches permission
+            if (permissions.includes("view_matches")) {
+                responseData.matches = child.matches?.map(match => ({
+                    matchedAt: match.matchedAt,
+                    compatibilityScore: match.compatibilityScore,
+                    user: match.userId ? {
+                        id: match.userId._id,
+                        name: match.userId.name,
+                        photo: match.userId.photos?.find(p => p.isPrimary)?.url || match.userId.photos?.[0]?.url,
+                        city: match.userId.city,
+                        profession: match.userId.profession,
+                    } : null
+                })).filter(m => m.user) || [];
+            }
+
+            // Include conversations if has chat permission
+            if (permissions.includes("chat")) {
+                const conversations = await Conversation.find({
+                    participants: user.linkedChild,
+                })
+                    .populate({
+                        path: "participants",
+                        select: "name photos",
+                    })
+                    .populate({
+                        path: "lastMessage",
+                        select: "content type createdAt",
+                    })
+                    .sort({ updatedAt: -1 })
+                    .limit(20);
+
+                responseData.conversations = conversations.map(conv => ({
+                    id: conv._id,
+                    participants: conv.participants?.map(p => ({
+                        id: p._id,
+                        name: p.name,
+                        photo: p.photos?.find(ph => ph.isPrimary)?.url || p.photos?.[0]?.url,
+                    })),
+                    lastMessage: conv.lastMessage ? {
+                        content: conv.lastMessage.content,
+                        type: conv.lastMessage.type,
+                        createdAt: conv.lastMessage.createdAt,
+                    } : null,
+                    updatedAt: conv.updatedAt,
+                }));
+            }
 
             res.status(200).json({
                 success: true,
-                data: {
-                    childProfile: {
-                        name: child.name,
-                        photo: child.photos.find((p) => p.isPrimary)?.url,
-                        completeness: child.profileCompleteness,
-                    },
-                    matches: child.matches,
-                },
+                data: responseData,
             });
         } catch (error) {
             console.error("❌ Get child data error:", error.message);
