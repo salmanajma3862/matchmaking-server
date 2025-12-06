@@ -52,6 +52,18 @@ const userSchema = new mongoose.Schema(
     // ------------------------------------------------------------------
     // AUTH & ACCOUNT
     // ------------------------------------------------------------------
+    role: {
+      type: String,
+      enum: ["user", "family_unlinked", "family", "admin"],
+      default: "user",
+    },
+    linkedChild: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    familyMembers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    familyInviteRateLimit: {
+      attempts: { type: Number, default: 0 },
+      blockUntil: { type: Date, default: null },
+    },
+
     phone: { type: String, required: true, unique: true },
     email: { type: String, unique: true, sparse: true },
     passwordHash: { type: String, required: true },
