@@ -28,8 +28,19 @@ class FamilyController {
             }
 
             // Default duration: 24 hours
-            const duration = durationInHours || 24;
-            const expiresAt = new Date(Date.now() + duration * 60 * 60 * 1000);
+            let duration = durationInHours || 24;
+
+            // Special cases for "1 month" (approx 720 hours) or "lifetime"
+            // We'll assume the client sends specific magic numbers or we just handle large values
+            // Client might send: 720 (1 month), -1 (lifetime)
+
+            let expiresAt;
+            if (duration === -1) {
+                // Lifetime: Set to 100 years from now
+                expiresAt = new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000);
+            } else {
+                expiresAt = new Date(Date.now() + duration * 60 * 60 * 1000);
+            }
 
             // Generate unique code
             let code = generateInviteCode();
@@ -67,7 +78,7 @@ class FamilyController {
      */
     async signupFamily(req, res) {
         try {
-            const { email, password, name } = req.body;
+            const { email, password, name, relation, relationDetail } = req.body;
 
             if (!email || !password || !name) {
                 return res.status(400).json({ success: false, message: "All fields are required" });
@@ -89,7 +100,11 @@ class FamilyController {
                 phone: `family_${Date.now()}`, // Placeholder
                 gender: "female", // Default, can be updated
                 dob: new Date(), // Default
-                isEmailVerified: true, // Auto-verify for simplicity in this flow, or implement verification
+                isEmailVerified: true, // Auto-verify for simplicity in this flow
+                familyMode: {
+                    familyRelation: relation,
+                    familyRelationDetail: relationDetail
+                }
             });
 
             const token = jwt.sign(
@@ -170,7 +185,16 @@ class FamilyController {
 
             // Update Inviter
             await User.findByIdAndUpdate(invite.inviterId, {
-                $addToSet: { familyMembers: userId },
+                $addToSet: {
+                    "familyMode.parents": {
+                        name: user.name,
+                        relation: user.familyMode?.familyRelation || "guardian",
+                        relationDetail: user.familyMode?.familyRelationDetail,
+                        permissions: invite.scope
+                    }
+                    // Note: storing ID in familyMembers still useful for references
+                },
+                $addToSet: { familyMembers: userId }
             });
 
             // Mark invite as used (optional, if one-time use)

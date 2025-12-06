@@ -199,16 +199,22 @@ const userSchema = new mongoose.Schema(
     },
 
     // ------------------------------------------------------------------
-    // FAMILY MODE
+    // FAMILY MODE enabled
     // ------------------------------------------------------------------
     familyMode: {
       enabled: { type: Boolean, default: false },
+      // Fields for the Family Member (Child)
+      familyRelation: { type: String, enum: ["father", "mother", "sister", "brother", "guardian", "other"] },
+      familyRelationDetail: { type: String, maxlength: 25 },
+
       parents: [
         {
           name: String,
-          relation: { type: String, enum: ["father", "mother", "guardian"] },
+          relation: { type: String, enum: ["father", "mother", "sister", "brother", "guardian", "other"] },
+          relationDetail: { type: String, maxlength: 25 }, // For "other"
           phone: String,
           canViewMatches: { type: Boolean, default: true },
+          permissions: [{ type: String }], // e.g. ["view_matches", "chat"]
         },
       ],
     },
