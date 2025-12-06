@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import FamilyInvite from "../models/FamilyInvite.js";
 import Conversation from "../models/Conversation.js";
+import Match from "../models/Match.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { generateVerificationCode } from "../utils/verificationUtils.js";
@@ -257,17 +258,37 @@ class FamilyController {
 
             // Include matches if has view_matches permission
             if (permissions.includes("view_matches")) {
-                responseData.matches = child.matches?.map(match => ({
-                    matchedAt: match.matchedAt,
-                    compatibilityScore: match.compatibilityScore,
-                    user: match.userId ? {
-                        id: match.userId._id,
-                        name: match.userId.name,
-                        photo: match.userId.photos?.find(p => p.isPrimary)?.url || match.userId.photos?.[0]?.url,
-                        city: match.userId.city,
-                        profession: match.userId.profession,
-                    } : null
-                })).filter(m => m.user) || [];
+                // Query the Match collection where child is either userA or userB
+                const matches = await Match.find({
+                    $or: [
+                        { userA: user.linkedChild },
+                        { userB: user.linkedChild }
+                    ],
+                    status: "matched"
+                })
+                    .populate("userA", "name photos city profession")
+                    .populate("userB", "name photos city profession")
+                    .sort({ matchedAt: -1 })
+                    .limit(50);
+
+                responseData.matches = matches.map(match => {
+                    // Determine which user is the "other" person (not the child)
+                    const otherUser = match.userA._id.toString() === user.linkedChild.toString()
+                        ? match.userB
+                        : match.userA;
+
+                    return {
+                        matchedAt: match.matchedAt,
+                        compatibilityScore: match.aiCompatibility?.score || null,
+                        user: otherUser ? {
+                            id: otherUser._id,
+                            name: otherUser.name,
+                            photo: otherUser.photos?.find(p => p.isPrimary)?.url || otherUser.photos?.[0]?.url,
+                            city: otherUser.city,
+                            profession: otherUser.profession,
+                        } : null
+                    };
+                }).filter(m => m.user);
             }
 
             // Include conversations if has chat permission
