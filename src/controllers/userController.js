@@ -9,9 +9,9 @@ import { getRecommendedUsers } from '../services/algorithm.js';
  */
 const sanitizeUserData = (user) => {
   if (!user) return null;
-  
+
   const userObj = user.toObject ? user.toObject() : user;
-  
+
   return {
     ...userObj,
     // Core boolean fields
@@ -20,44 +20,44 @@ const sanitizeUserData = (user) => {
     isOnline: Boolean(userObj.isOnline),
     onboardingCompleted: Boolean(userObj.onboardingCompleted),
     isVerified: Boolean(userObj.isVerified),
-    
+
     // Optional boolean fields
     smoking: userObj.smoking !== undefined ? Boolean(userObj.smoking) : false,
     drinking: userObj.drinking !== undefined ? Boolean(userObj.drinking) : false,
     livingWithFamily: userObj.livingWithFamily !== undefined ? Boolean(userObj.livingWithFamily) : false,
-    
+
     // Notification boolean fields
     notificationsEnabled: Boolean(userObj.notificationsEnabled),
     messageNotifications: Boolean(userObj.messageNotifications),
     matchNotifications: Boolean(userObj.matchNotifications),
     familyApprovalNotifications: Boolean(userObj.familyApprovalNotifications),
     marketingNotifications: Boolean(userObj.marketingNotifications),
-    
+
     // Onboarding boolean fields
     hasSeenIntroScreens: Boolean(userObj.hasSeenIntroScreens),
     needsProfileUpdate: Boolean(userObj.needsProfileUpdate),
-    
+
     // Sanitize photos array
-    photos: userObj.photos && Array.isArray(userObj.photos) 
+    photos: userObj.photos && Array.isArray(userObj.photos)
       ? userObj.photos.map(photo => ({
-          ...photo,
-          isPrimary: Boolean(photo.isPrimary || false),
-        }))
+        ...photo,
+        isPrimary: Boolean(photo.isPrimary || false),
+      }))
       : [],
-    
+
     // Sanitize nested objects
     familyMode: userObj.familyMode ? {
       ...userObj.familyMode,
       enabled: Boolean(userObj.familyMode.enabled),
     } : undefined,
-    
+
     privacySettings: userObj.privacySettings ? {
       hideLastSeen: Boolean(userObj.privacySettings.hideLastSeen),
       hideProfilePhoto: Boolean(userObj.privacySettings.hideProfilePhoto),
       hideOnlineStatus: Boolean(userObj.privacySettings.hideOnlineStatus),
       blockStrangersFromMessaging: Boolean(userObj.privacySettings.blockStrangersFromMessaging),
     } : undefined,
-    
+
     moderation: userObj.moderation ? {
       ...userObj.moderation,
       autoBlurEnabled: Boolean(userObj.moderation.autoBlurEnabled),
@@ -317,8 +317,8 @@ class UserController {
         // Family details
         ...(familyBackground && { familyBackground }),
         ...(numberOfSiblings && { numberOfSiblings: parseInt(numberOfSiblings) }),
-        ...(livingWithFamily !== undefined && { 
-          livingWithFamily: livingWithFamily === 'true' || livingWithFamily === true 
+        ...(livingWithFamily !== undefined && {
+          livingWithFamily: livingWithFamily === 'true' || livingWithFamily === true
         }),
 
         // User intention
@@ -347,10 +347,10 @@ class UserController {
       const totalFields = 25;
       const filledFields = Object.keys(updateData).filter(key => {
         const value = updateData[key];
-        return value !== null && value !== undefined && value !== '' && 
-               !(Array.isArray(value) && value.length === 0);
+        return value !== null && value !== undefined && value !== '' &&
+          !(Array.isArray(value) && value.length === 0);
       }).length;
-      
+
       updateData.profileCompleteness = Math.round((filledFields / totalFields) * 100);
 
       // Update user
@@ -442,6 +442,35 @@ class UserController {
       delete updates._id;
       delete updates.verificationCode;
       delete updates.passwordResetToken;
+
+      // Name change rate limiting - can only change name once per 30 days
+      if (updates.name) {
+        const user = await User.findById(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            message: 'User not found',
+          });
+        }
+
+        if (updates.name !== user.name) {
+          const lastChange = user.lastNameChangeAt;
+          if (lastChange) {
+            const daysSinceChange = (Date.now() - new Date(lastChange).getTime()) / (1000 * 60 * 60 * 24);
+            if (daysSinceChange < 30) {
+              const daysRemaining = Math.ceil(30 - daysSinceChange);
+              return res.status(400).json({
+                success: false,
+                message: `You can change your name again in ${daysRemaining} days.`,
+                code: 'NAME_CHANGE_RATE_LIMITED',
+                daysRemaining: daysRemaining
+              });
+            }
+          }
+          // Update lastNameChangeAt when name is changed
+          updates.lastNameChangeAt = new Date();
+        }
+      }
 
       const updatedUser = await User.findByIdAndUpdate(
         userId,

@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema(
     // BASIC PROFILE
     // ------------------------------------------------------------------
     name: { type: String, required: true },
+    lastNameChangeAt: { type: Date, default: null },
     gender: { type: String, enum: ["male", "female"], required: true },
     dob: { type: Date, required: true },
     bio: { type: String, default: "" },
