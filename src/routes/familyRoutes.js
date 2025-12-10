@@ -10,6 +10,8 @@ router.post("/signup", familyController.signupFamily);
 // Protected routes
 router.post("/invite", authenticate, familyController.createInvite);
 router.get("/my-codes", authenticate, familyController.getMyInviteCodes);
+router.delete("/invite/:codeId", authenticate, familyController.deleteInviteCode);
+router.patch("/invite/:codeId/deactivate", authenticate, familyController.deactivateInviteCode);
 router.post("/link", authenticate, familyController.linkFamily);
 router.get("/child-data", authenticate, familyController.getChildData);
 

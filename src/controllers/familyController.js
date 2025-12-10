@@ -347,6 +347,94 @@ class FamilyController {
             res.status(500).json({ success: false, message: "Failed to fetch invite codes" });
         }
     }
+
+    /**
+     * DELETE/DEACTIVATE INVITE CODE - User can delete or expire their invite codes
+     */
+    async deleteInviteCode(req, res) {
+        try {
+            const { codeId } = req.params;
+            const userId = req.user.userId;
+
+            if (!codeId) {
+                return res.status(400).json({ success: false, message: "Code ID is required" });
+            }
+
+            // Find the invite and verify ownership
+            const invite = await FamilyInvite.findById(codeId);
+
+            if (!invite) {
+                return res.status(404).json({ success: false, message: "Invite code not found" });
+            }
+
+            if (invite.inviterId.toString() !== userId) {
+                return res.status(403).json({ success: false, message: "You can only delete your own invite codes" });
+            }
+
+            // If code was already used, we can't delete it but we can mark as expired
+            if (invite.status === "used") {
+                return res.status(400).json({
+                    success: false,
+                    message: "Cannot delete a code that has already been used"
+                });
+            }
+
+            // Delete the invite code
+            await FamilyInvite.findByIdAndDelete(codeId);
+
+            res.status(200).json({
+                success: true,
+                message: "Invite code deleted successfully",
+            });
+        } catch (error) {
+            console.error("❌ Delete invite code error:", error.message);
+            res.status(500).json({ success: false, message: "Failed to delete invite code" });
+        }
+    }
+
+    /**
+     * DEACTIVATE INVITE CODE - Mark an invite code as expired
+     */
+    async deactivateInviteCode(req, res) {
+        try {
+            const { codeId } = req.params;
+            const userId = req.user.userId;
+
+            if (!codeId) {
+                return res.status(400).json({ success: false, message: "Code ID is required" });
+            }
+
+            const invite = await FamilyInvite.findById(codeId);
+
+            if (!invite) {
+                return res.status(404).json({ success: false, message: "Invite code not found" });
+            }
+
+            if (invite.inviterId.toString() !== userId) {
+                return res.status(403).json({ success: false, message: "You can only deactivate your own invite codes" });
+            }
+
+            if (invite.status !== "active") {
+                return res.status(400).json({
+                    success: false,
+                    message: "Only active codes can be deactivated"
+                });
+            }
+
+            // Mark as expired
+            invite.status = "expired";
+            invite.expiresAt = new Date(); // Set expiry to now
+            await invite.save();
+
+            res.status(200).json({
+                success: true,
+                message: "Invite code deactivated successfully",
+            });
+        } catch (error) {
+            console.error("❌ Deactivate invite code error:", error.message);
+            res.status(500).json({ success: false, message: "Failed to deactivate invite code" });
+        }
+    }
 }
 
 export default new FamilyController();
