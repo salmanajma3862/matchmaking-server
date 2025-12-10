@@ -53,10 +53,11 @@ class FamilyController {
                 else code = generateInviteCode();
             }
 
+            // Force scope to only view_matches for now (chat feature disabled)
             const invite = await FamilyInvite.create({
                 code,
                 inviterId: userId,
-                scope: scope || ["view_matches"], // Default scope
+                scope: ["view_matches"], // Only view_matches allowed for now
                 expiresAt,
             });
 
@@ -291,37 +292,8 @@ class FamilyController {
                 }).filter(m => m.user);
             }
 
-            // Include conversations if has chat permission
-            if (permissions.includes("chat")) {
-                const conversations = await Conversation.find({
-                    participants: user.linkedChild,
-                })
-                    .populate({
-                        path: "participants",
-                        select: "name photos",
-                    })
-                    .populate({
-                        path: "lastMessage",
-                        select: "content type createdAt",
-                    })
-                    .sort({ updatedAt: -1 })
-                    .limit(20);
-
-                responseData.conversations = conversations.map(conv => ({
-                    id: conv._id,
-                    participants: conv.participants?.map(p => ({
-                        id: p._id,
-                        name: p.name,
-                        photo: p.photos?.find(ph => ph.isPrimary)?.url || p.photos?.[0]?.url,
-                    })),
-                    lastMessage: conv.lastMessage ? {
-                        content: conv.lastMessage.content,
-                        type: conv.lastMessage.type,
-                        createdAt: conv.lastMessage.createdAt,
-                    } : null,
-                    updatedAt: conv.updatedAt,
-                }));
-            }
+            // Note: Chat feature disabled for family members for now
+            // Conversations are not fetched - will be re-enabled in future
 
             res.status(200).json({
                 success: true,

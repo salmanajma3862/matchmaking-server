@@ -3,6 +3,9 @@ import Conversation from '../models/Conversation.js';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
 import { uploadFile, getFileUrl } from '../services/azureStorageService.js';
+// Note: Family member chat participation has been disabled
+// Chat is now strictly between the two matched users only
+
 
 export const sendMessage = async (req, res) => {
   try {
@@ -34,6 +37,18 @@ export const sendMessage = async (req, res) => {
       } else {
         finalMessageType = 'file';
       }
+    }
+
+    // Verify sender is a participant in the conversation
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+    const isParticipant = conversation.participants.some(
+      p => p.toString() === senderId.toString()
+    );
+    if (!isParticipant) {
+      return res.status(403).json({ message: 'Not authorized to send messages in this conversation' });
     }
 
     const message = new Message({
@@ -70,20 +85,18 @@ export const sendMessage = async (req, res) => {
       lastMessage: message._id,
       lastMessageText: lastMessageText,
       lastMessageAt: new Date(),
-      $inc: { [`unreadCount.${senderId}`]: 0 }, // Reset sender's unread? No, increment others.
-      // Actually, increment unread for others.
+      $inc: { [`unreadCount.${senderId}`]: 0 },
     });
 
-    // Increment unread count for other participants
-    const conversation = await Conversation.findById(conversationId);
-    conversation.participants.forEach(participantId => {
+    // Increment unread count for other participants (refresh conversation object)
+    const updatedConversation = await Conversation.findById(conversationId);
+    updatedConversation.participants.forEach(participantId => {
       if (participantId.toString() !== senderId.toString()) {
-        const currentCount = conversation.unreadCount.get(participantId.toString()) || 0;
-        conversation.unreadCount.set(participantId.toString(), currentCount + 1);
+        const currentCount = updatedConversation.unreadCount.get(participantId.toString()) || 0;
+        updatedConversation.unreadCount.set(participantId.toString(), currentCount + 1);
       }
     });
-    await conversation.save();
-
+    await updatedConversation.save();
 
     // Emit socket event
     const io = req.app.get('io');
@@ -100,7 +113,7 @@ export const sendMessage = async (req, res) => {
     io.to(conversationId).emit('new_message', messageObj);
 
     // Also emit to participants' personal rooms for notification if they are not in the conversation room
-    conversation.participants.forEach(participantId => {
+    updatedConversation.participants.forEach(participantId => {
       if (participantId.toString() !== senderId.toString()) {
         io.to(participantId.toString()).emit('notification', {
           type: 'new_message',
@@ -213,6 +226,21 @@ export const getMessages = async (req, res) => {
     const { conversationId } = req.params;
     const { page = 1, limit = 20 } = req.query;
     const userId = req.user.userId;
+
+    // Check if user can access this conversation (either as participant or family member)
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+
+    const isParticipant = conversation.participants.some(
+      p => p.toString() === userId.toString()
+    );
+
+    // User must be a direct participant to view messages
+    if (!isParticipant) {
+      return res.status(403).json({ message: 'Not authorized to view this conversation' });
+    }
 
     const messages = await Message.find({ conversationId })
       .sort({ createdAt: -1 })

@@ -90,6 +90,11 @@ const MessageSchema = new mongoose.Schema(
     // For AI-generated reply suggestions later
     aiGenerated: { type: Boolean, default: false },
 
+    // Family member participation
+    isFamilyParticipant: { type: Boolean, default: false },
+    familyRelation: { type: String, default: null }, // e.g., "father", "mother"
+    onBehalfOf: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }, // Child user ID
+
     createdAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
