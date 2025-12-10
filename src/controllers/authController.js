@@ -174,24 +174,24 @@ class AuthController {
       // Verify code
       if (user.verificationCode !== codeToVerify) {
         console.log('❌ Invalid verification code for:', email);
-        
+
         // Increment failed OTP attempts
         user.failedOtpAttempts = (user.failedOtpAttempts || 0) + 1;
-        
+
         // Lock account after max attempts
         const maxAttempts = parseInt(process.env.OTP_MAX_ATTEMPTS) || 3;
         if (user.failedOtpAttempts >= maxAttempts) {
           const lockTime = parseInt(process.env.ACCOUNT_LOCK_TIME) || 15;
           user.accountLockedUntil = new Date(Date.now() + lockTime * 60 * 1000);
           await user.save();
-          
+
           console.log('🔒 Account locked due to too many failed attempts:', email);
           return res.status(429).json({
             success: false,
             message: `Too many failed attempts. Account locked for ${lockTime} minutes.`,
           });
         }
-        
+
         await user.save();
         return res.status(400).json({
           success: false,
@@ -693,7 +693,8 @@ class AuthController {
    */
   async logout(req, res) {
     try {
-      const { userId } = req.body;
+      // Get userId from the authenticated user (set by auth middleware from JWT token)
+      const userId = req.user?.userId;
 
       console.log('👋 Logout request for user:', userId);
 
