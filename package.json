@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@azure/notification-hubs": "^2.0.2",
     "@azure/storage-blob": "^12.29.1",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.8.0",

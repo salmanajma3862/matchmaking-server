@@ -3,6 +3,7 @@ import Conversation from '../models/Conversation.js';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
 import { uploadFile, getFileUrl } from '../services/azureStorageService.js';
+import { sendNewMessageNotification } from '../services/notificationService.js';
 // Note: Family member chat participation has been disabled
 // Chat is now strictly between the two matched users only
 
@@ -113,15 +114,26 @@ export const sendMessage = async (req, res) => {
     io.to(conversationId).emit('new_message', messageObj);
 
     // Also emit to participants' personal rooms for notification if they are not in the conversation room
-    updatedConversation.participants.forEach(participantId => {
+    // And send push notifications to offline users
+    const sender = await User.findById(senderId).select('name');
+    const senderName = sender?.name || 'Someone';
+
+    for (const participantId of updatedConversation.participants) {
       if (participantId.toString() !== senderId.toString()) {
         io.to(participantId.toString()).emit('notification', {
           type: 'new_message',
           message: messageObj,
           conversationId
         });
+
+        // Send push notification to offline users
+        const recipient = await User.findById(participantId).select('isOnline pushToken');
+        if (recipient && !recipient.isOnline && recipient.pushToken) {
+          const preview = text || (finalMessageType === 'image' ? '📷 Image' : finalMessageType === 'audio' ? '🎤 Voice message' : 'New message');
+          sendNewMessageNotification(participantId.toString(), senderName, preview, conversationId);
+        }
       }
-    });
+    }
 
     res.status(201).json(messageObj);
   } catch (error) {

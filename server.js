@@ -9,6 +9,7 @@ import swipeRoutes from './src/routes/swipeRoutes.js';
 import chatRoutes from './src/routes/chatRoutes.js';
 import reportRoutes from './src/routes/reportRoutes.js';
 import familyRoutes from './src/routes/familyRoutes.js';
+import notificationRoutes from './src/routes/notificationRoutes.js';
 import { socketHandler } from './src/sockets/socketHandler.js';
 
 // Load environment variables
@@ -54,6 +55,7 @@ app.use('/api/swipe', swipeRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/family', familyRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

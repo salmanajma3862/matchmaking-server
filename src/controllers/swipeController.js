@@ -2,6 +2,7 @@ import Swipe from '../models/Swipe.js';
 import Match from '../models/Match.js';
 import User from '../models/User.js';
 import Conversation from '../models/Conversation.js';
+import { sendNewMatchNotification } from '../services/notificationService.js';
 
 class SwipeController {
   /**
@@ -119,6 +120,15 @@ class SwipeController {
             const updateB = await User.findByIdAndUpdate(userB, { $inc: { totalMatches: 1 } }, { new: true });
             console.log(`✅ User A (${userA}) totalMatches: ${updateA?.totalMatches}`);
             console.log(`✅ User B (${userB}) totalMatches: ${updateB?.totalMatches}`);
+
+            // Send push notifications to both users about the new match
+            try {
+              sendNewMatchNotification(userA, updateB?.name || 'Someone', match._id.toString());
+              sendNewMatchNotification(userB, updateA?.name || 'Someone', match._id.toString());
+              console.log(`🔔 Push notifications sent for match ${match._id}`);
+            } catch (notifError) {
+              console.error('❌ Error sending match notifications:', notifError);
+            }
 
           } else {
             console.log(`⚠️ Match already exists for ${userA} & ${userB}`);
