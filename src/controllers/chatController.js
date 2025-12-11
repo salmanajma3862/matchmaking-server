@@ -111,7 +111,15 @@ export const sendMessage = async (req, res) => {
       }
     }
 
+    console.log(`[Chat] 📤 Emitting new_message to conversation room: ${conversationId}`);
+    console.log(`[Chat] 📨 Message ID: ${messageObj._id}, Sender: ${senderId}, Text: "${text?.substring(0, 50) || '[media]'}"`);
+
+    // Check how many sockets are in the room
+    const roomSockets = io.sockets.adapter.rooms.get(conversationId);
+    console.log(`[Chat] 👥 Sockets in room ${conversationId}:`, roomSockets ? roomSockets.size : 0);
+
     io.to(conversationId).emit('new_message', messageObj);
+    console.log(`[Chat] ✅ new_message emitted successfully`);
 
     // Also emit to participants' personal rooms for notification if they are not in the conversation room
     // And send push notifications to offline users
@@ -120,6 +128,7 @@ export const sendMessage = async (req, res) => {
 
     for (const participantId of updatedConversation.participants) {
       if (participantId.toString() !== senderId.toString()) {
+        console.log(`[Chat] 📤 Emitting notification to personal room: ${participantId}`);
         io.to(participantId.toString()).emit('notification', {
           type: 'new_message',
           message: messageObj,
@@ -133,14 +142,14 @@ export const sendMessage = async (req, res) => {
         if (recipient && recipient.pushToken) {
           const preview = text || (finalMessageType === 'image' ? '📷 Image' : finalMessageType === 'audio' ? '🎤 Voice message' : 'New message');
           sendNewMessageNotification(participantId.toString(), senderName, preview, conversationId);
-          console.log(`[Chat] Push notification sent to ${participantId}`);
+          console.log(`[Chat] 🔔 Push notification sent to ${participantId}`);
         }
       }
     }
 
     res.status(201).json(messageObj);
   } catch (error) {
-    console.error('Error sending message:', error);
+    console.error('[Chat] ❌ Error sending message:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
