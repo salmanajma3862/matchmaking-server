@@ -126,11 +126,14 @@ export const sendMessage = async (req, res) => {
           conversationId
         });
 
-        // Send push notification to offline users
-        const recipient = await User.findById(participantId).select('isOnline pushToken');
-        if (recipient && !recipient.isOnline && recipient.pushToken) {
+        // Send push notification to users with push token
+        // The app will handle showing notification only when in background
+        // (This is the standard approach used by WhatsApp, Messenger, etc.)
+        const recipient = await User.findById(participantId).select('pushToken');
+        if (recipient && recipient.pushToken) {
           const preview = text || (finalMessageType === 'image' ? '📷 Image' : finalMessageType === 'audio' ? '🎤 Voice message' : 'New message');
           sendNewMessageNotification(participantId.toString(), senderName, preview, conversationId);
+          console.log(`[Chat] Push notification sent to ${participantId}`);
         }
       }
     }

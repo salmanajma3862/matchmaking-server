@@ -1,4 +1,4 @@
-import { NotificationHubsClient } from "@azure/notification-hubs";
+import { NotificationHubsClient, createFcmV1Notification } from "@azure/notification-hubs";
 import User from '../models/User.js';
 
 // Initialize client with connection string from environment
@@ -96,34 +96,32 @@ export async function sendNotification(userId, title, body, data = {}) {
             return null;
         }
 
-        // FCM v1 notification payload format
-        const fcmPayload = {
-            message: {
-                notification: {
-                    title,
-                    body
-                },
-                data: Object.fromEntries(
-                    Object.entries({ ...data, type: data.type || "general" })
-                        .map(([k, v]) => [k, String(v)])
-                ),
-                android: {
-                    priority: "high",
+        // Convert all data values to strings (FCM requirement)
+        const stringData = {};
+        for (const [key, value] of Object.entries(data)) {
+            stringData[key] = String(value);
+        }
+        stringData.type = stringData.type || "general";
+
+        // FCM v1 notification using SDK helper
+        const notification = createFcmV1Notification({
+            body: JSON.stringify({
+                message: {
                     notification: {
-                        sound: "default",
-                        clickAction: "OPEN_APP"
+                        title: title,
+                        body: body
+                    },
+                    data: stringData,
+                    android: {
+                        priority: "high",
+                        notification: {
+                            sound: "default",
+                            click_action: "OPEN_APP"
+                        }
                     }
                 }
-            }
-        };
-
-        // Create notification object
-        const notification = {
-            body: JSON.stringify(fcmPayload),
-            headers: {
-                "Content-Type": "application/json"
-            }
-        };
+            })
+        });
 
         // Send to specific user using their tag
         const result = await nhClient.sendNotification(notification, {
@@ -131,6 +129,7 @@ export async function sendNotification(userId, title, body, data = {}) {
         });
 
         console.log(`[NotificationService] Notification sent to user ${userId}: ${title}`);
+        console.log(`[NotificationService] Tracking ID: ${result.trackingId}`);
         return result;
     } catch (error) {
         console.error('[NotificationService] Error sending notification:', error);
@@ -157,32 +156,31 @@ export async function sendNotificationToMultiple(userIds, title, body, data = {}
         // Create tag expression for multiple users (OR condition)
         const tagExpression = userIds.map(id => `userId:${id}`).join(' || ');
 
-        const fcmPayload = {
-            message: {
-                notification: {
-                    title,
-                    body
-                },
-                data: Object.fromEntries(
-                    Object.entries({ ...data, type: data.type || "general" })
-                        .map(([k, v]) => [k, String(v)])
-                ),
-                android: {
-                    priority: "high",
+        // Convert all data values to strings
+        const stringData = {};
+        for (const [key, value] of Object.entries(data)) {
+            stringData[key] = String(value);
+        }
+        stringData.type = stringData.type || "general";
+
+        const notification = createFcmV1Notification({
+            body: JSON.stringify({
+                message: {
                     notification: {
-                        sound: "default",
-                        clickAction: "OPEN_APP"
+                        title: title,
+                        body: body
+                    },
+                    data: stringData,
+                    android: {
+                        priority: "high",
+                        notification: {
+                            sound: "default",
+                            click_action: "OPEN_APP"
+                        }
                     }
                 }
-            }
-        };
-
-        const notification = {
-            body: JSON.stringify(fcmPayload),
-            headers: {
-                "Content-Type": "application/json"
-            }
-        };
+            })
+        });
 
         const result = await nhClient.sendNotification(notification, {
             tagExpression
@@ -209,8 +207,7 @@ export async function sendNewMessageNotification(recipientId, senderName, messag
 
     return sendNotification(recipientId, title, body, {
         type: 'new_message',
-        conversationId,
-        senderId: recipientId
+        conversationId: conversationId
     });
 }
 
@@ -226,7 +223,7 @@ export async function sendNewMatchNotification(userId, matchedUserName, matchId)
 
     return sendNotification(userId, title, body, {
         type: 'new_match',
-        matchId
+        matchId: matchId
     });
 }
 
@@ -238,4 +235,5 @@ export default {
     sendNewMessageNotification,
     sendNewMatchNotification
 };
+
 
