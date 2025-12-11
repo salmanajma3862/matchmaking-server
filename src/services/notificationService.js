@@ -102,22 +102,19 @@ export async function sendNotification(userId, title, body, data = {}) {
             stringData[key] = String(value);
         }
         stringData.type = stringData.type || "general";
+        // Include title and body in data payload for data-only messages
+        stringData.title = title;
+        stringData.body = body;
 
-        // FCM v1 notification using SDK helper
+        // FCM v1 DATA-ONLY notification (no "notification" payload)
+        // This ensures onMessageReceived is ALWAYS called, even when app is killed
+        // The app then creates its own notification with proper click handling
         const notification = createFcmV1Notification({
             body: JSON.stringify({
                 message: {
-                    notification: {
-                        title: title,
-                        body: body
-                    },
                     data: stringData,
                     android: {
-                        priority: "high",
-                        notification: {
-                            sound: "default",
-                            click_action: "OPEN_APP"
-                        }
+                        priority: "high"
                     }
                 }
             })
@@ -162,21 +159,17 @@ export async function sendNotificationToMultiple(userIds, title, body, data = {}
             stringData[key] = String(value);
         }
         stringData.type = stringData.type || "general";
+        // Include title and body in data payload for data-only messages
+        stringData.title = title;
+        stringData.body = body;
 
+        // FCM v1 DATA-ONLY notification (no "notification" payload)
         const notification = createFcmV1Notification({
             body: JSON.stringify({
                 message: {
-                    notification: {
-                        title: title,
-                        body: body
-                    },
                     data: stringData,
                     android: {
-                        priority: "high",
-                        notification: {
-                            sound: "default",
-                            click_action: "OPEN_APP"
-                        }
+                        priority: "high"
                     }
                 }
             })
