@@ -11,7 +11,7 @@ export const socketHandler = (io) => {
 
     if (userId) {
       try {
-        await User.findByIdAndUpdate(userId, { isOnline: true, lastActive: new Date() });
+        await User.findByIdAndUpdate(userId, { isOnline: true, lastSeen: new Date() });
         socket.join(userId); // Join a room with their own ID for personal notifications
         console.log(`[Socket] 👤 User ${userId} joined personal room and marked online`);
         io.emit('user_status_change', { userId, isOnline: true });
@@ -50,8 +50,8 @@ export const socketHandler = (io) => {
       console.log(`[Socket] 🔴 Client disconnected - Socket ID: ${socket.id}, User ID: ${userId}`);
       if (userId) {
         try {
-          await User.findByIdAndUpdate(userId, { isOnline: false, lastActive: new Date() });
-          io.emit('user_status_change', { userId, isOnline: false, lastActive: new Date() });
+          await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() });
+          io.emit('user_status_change', { userId, isOnline: false, lastSeen: new Date() });
           console.log(`[Socket] 📢 Emitted user_status_change: ${userId} is offline`);
         } catch (error) {
           console.error(`[Socket] ❌ Error updating disconnect status for ${userId}:`, error);
