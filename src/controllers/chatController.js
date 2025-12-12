@@ -307,7 +307,7 @@ export const getConversations = async (req, res) => {
     console.log(`📥 Fetching conversations for user: ${userId}`);
 
     const conversations = await Conversation.find({ participants: userId })
-      .populate({ path: 'participants', select: 'name photos isOnline lastActive', model: 'User' })
+      .populate({ path: 'participants', select: 'name photos isOnline lastSeen privacySettings', model: 'User' })
       .populate({
         path: 'lastMessage',
         model: 'Message',
