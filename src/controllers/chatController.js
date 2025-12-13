@@ -3,6 +3,7 @@ import Conversation from '../models/Conversation.js';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
 import { uploadFile, getFileUrl } from '../services/azureStorageService.js';
+import { sendNewMessageNotification } from '../services/notificationService.js';
 
 export const sendMessage = async (req, res) => {
   try {
@@ -86,6 +87,22 @@ export const sendMessage = async (req, res) => {
           message,
           conversationId
         });
+      }
+    });
+
+    // Send push notification to other participants
+    const sender = await User.findById(senderId).select('name');
+    const senderName = sender?.name || 'Someone';
+    const messagePreview = text || (messageType === 'image' ? '📷 Image' : messageType === 'audio' ? '🎤 Voice message' : 'New message');
+
+    conversation.participants.forEach(participantId => {
+      if (participantId.toString() !== senderId.toString()) {
+        sendNewMessageNotification(
+          participantId.toString(),
+          senderName,
+          messagePreview,
+          conversationId
+        );
       }
     });
 
