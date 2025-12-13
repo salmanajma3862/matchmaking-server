@@ -10,6 +10,7 @@ import chatRoutes from './src/routes/chatRoutes.js';
 import reportRoutes from './src/routes/reportRoutes.js';
 import familyRoutes from './src/routes/familyRoutes.js';
 import notificationRoutes from './src/routes/notificationRoutes.js';
+import subscriptionRoutes from './src/routes/subscriptionRoutes.js';
 import { socketHandler } from './src/sockets/socketHandler.js';
 
 // Load environment variables
@@ -56,6 +57,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/family', familyRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/subscription', subscriptionRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

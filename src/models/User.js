@@ -252,6 +252,13 @@ const userSchema = new mongoose.Schema(
     referredUsers: { type: Number, default: 0 },
 
     // ------------------------------------------------------------------
+    // SUBSCRIPTION
+    // ------------------------------------------------------------------
+    isPremium: { type: Boolean, default: false },
+    subscriptionExpiry: { type: Date },
+    subscriptionPlan: { type: String }, // 'premium_monthly', 'premium_yearly'
+
+    // ------------------------------------------------------------------
     // PRIVACY CONTROLS
     // ------------------------------------------------------------------
     privacySettings: {
