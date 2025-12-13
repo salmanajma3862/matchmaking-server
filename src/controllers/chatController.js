@@ -266,6 +266,8 @@ export const createConversation = async (req, res) => {
     const { participantId } = req.body;
     const userId = req.user.userId;
 
+    console.log(`📥 createConversation - userId: ${userId}, participantId: ${participantId}`);
+
     // Check if conversation already exists
     const existingConversation = await Conversation.findOne({
       participants: { $all: [userId, participantId] },
@@ -273,10 +275,20 @@ export const createConversation = async (req, res) => {
     });
 
     if (existingConversation) {
+      console.log(`✅ Found existing conversation: ${existingConversation._id}`);
       await existingConversation.populate({ path: 'participants', select: 'name photos isOnline lastActive', model: 'User' });
+      // Also populate lastMessage and its sender if exists
+      if (existingConversation.lastMessage) {
+        await existingConversation.populate({
+          path: 'lastMessage',
+          model: 'Message',
+          populate: { path: 'sender', select: 'name photos', model: 'User' }
+        });
+      }
       return res.json(existingConversation);
     }
 
+    console.log(`✨ Creating new conversation`);
     const conversation = new Conversation({
       participants: [userId, participantId],
       isOneToOne: true
@@ -284,6 +296,7 @@ export const createConversation = async (req, res) => {
 
     await conversation.save();
     await conversation.populate({ path: 'participants', select: 'name photos isOnline lastActive', model: 'User' });
+    console.log(`✅ New conversation created: ${conversation._id}`);
     res.status(201).json(conversation);
 
   } catch (error) {
