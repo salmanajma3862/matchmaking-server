@@ -710,7 +710,7 @@ class UserController {
   }
 
   /**
-   * GET FEED - Get recommended users for the feed
+   * GET FEED - Get recommended users for the feed with optional filters
    */
   async getFeed(req, res) {
     try {
@@ -718,9 +718,28 @@ class UserController {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
 
-      console.log(`🔍 Fetching feed for user: ${userId}, page: ${page}`);
+      // Parse filter parameters from query string
+      const filters = {
+        minAge: req.query.minAge ? parseInt(req.query.minAge) : null,
+        maxAge: req.query.maxAge ? parseInt(req.query.maxAge) : null,
+        city: req.query.city || null,
+        religion: req.query.religion || null,
+        maritalStatus: req.query.maritalStatus ? req.query.maritalStatus.split(',') : null,
+        education: req.query.education || null,
+        minHeight: req.query.minHeight ? parseInt(req.query.minHeight) : null,
+        maxHeight: req.query.maxHeight ? parseInt(req.query.maxHeight) : null,
+        smoking: req.query.smoking === 'true' ? true : req.query.smoking === 'false' ? false : null,
+        drinking: req.query.drinking === 'true' ? true : req.query.drinking === 'false' ? false : null,
+      };
 
-      const recommendations = await getRecommendedUsers(userId, page, limit);
+      // Remove null values from filters object
+      const cleanFilters = Object.fromEntries(
+        Object.entries(filters).filter(([_, v]) => v !== null)
+      );
+
+      console.log(`🔍 Fetching feed for user: ${userId}, page: ${page}, filters:`, cleanFilters);
+
+      const recommendations = await getRecommendedUsers(userId, page, limit, cleanFilters);
 
       // Sanitize the recommendations
       const sanitizedRecommendations = recommendations.map(user => sanitizeUserData(user));
@@ -730,7 +749,8 @@ class UserController {
         data: sanitizedRecommendations,
         page,
         limit,
-        hasMore: recommendations.length === limit
+        hasMore: recommendations.length === limit,
+        filtersApplied: Object.keys(cleanFilters).length > 0
       });
     } catch (error) {
       console.error('❌ Get feed error:', error.message);
