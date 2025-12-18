@@ -488,7 +488,7 @@ class UserController {
         .select('profileViewers')
         .populate({
           path: 'profileViewers.viewerId',
-          select: 'name photos city country age isOnline lastSeen',
+          select: 'name photos city country dob age isOnline lastSeen',
         });
 
       if (!viewers || !viewers.profileViewers) {
@@ -565,7 +565,7 @@ class UserController {
         .select('viewedProfiles')
         .populate({
           path: 'viewedProfiles.viewedUserId',
-          select: 'name photos city country age isOnline lastSeen',
+          select: 'name photos city country dob age isOnline lastSeen',
         });
 
       if (!userWithViewed || !userWithViewed.viewedProfiles) {
