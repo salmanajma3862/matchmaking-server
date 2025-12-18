@@ -419,25 +419,49 @@ class UserController {
 
         const viewTimestamp = new Date();
 
-        // Update viewed user's profileViewers array (who viewed their profile)
-        // Use $pull then $push to update timestamp if already exists (upsert-like behavior)
-        await User.findByIdAndUpdate(userId, {
-          $pull: { profileViewers: { viewerId: viewerId } }
-        });
-        await User.findByIdAndUpdate(userId, {
-          $push: { profileViewers: { viewerId: viewerId, viewedAt: viewTimestamp } },
-          $inc: { profileViews: 1 }
-        });
+        // Check if the viewer has already viewed this profile
+        const viewedUser = await User.findById(userId).select('profileViewers');
+        const existingView = viewedUser?.profileViewers?.find(
+          v => v.viewerId && v.viewerId.toString() === viewerId
+        );
+
+        if (existingView) {
+          // Already viewed before - just update the timestamp, don't increment count
+          await User.findByIdAndUpdate(
+            userId,
+            { $set: { 'profileViewers.$[elem].viewedAt': viewTimestamp } },
+            { arrayFilters: [{ 'elem.viewerId': viewerId }] }
+          );
+          console.log('✅ Profile view timestamp updated (already viewed before)');
+        } else {
+          // First time view - add to array and increment count
+          await User.findByIdAndUpdate(userId, {
+            $push: { profileViewers: { viewerId: viewerId, viewedAt: viewTimestamp } },
+            $inc: { profileViews: 1 }
+          });
+          console.log('✅ New profile view recorded');
+        }
 
         // Update viewer's viewedProfiles array (profiles they have viewed)
-        await User.findByIdAndUpdate(viewerId, {
-          $pull: { viewedProfiles: { viewedUserId: userId } }
-        });
-        await User.findByIdAndUpdate(viewerId, {
-          $push: { viewedProfiles: { viewedUserId: userId, viewedAt: viewTimestamp } }
-        });
+        // Check if already exists
+        const viewer = await User.findById(viewerId).select('viewedProfiles');
+        const existingViewedProfile = viewer?.viewedProfiles?.find(
+          v => v.viewedUserId && v.viewedUserId.toString() === userId
+        );
 
-        console.log('✅ Profile view recorded');
+        if (existingViewedProfile) {
+          // Already in list - just update timestamp
+          await User.findByIdAndUpdate(
+            viewerId,
+            { $set: { 'viewedProfiles.$[elem].viewedAt': viewTimestamp } },
+            { arrayFilters: [{ 'elem.viewedUserId': userId }] }
+          );
+        } else {
+          // First time - add to array
+          await User.findByIdAndUpdate(viewerId, {
+            $push: { viewedProfiles: { viewedUserId: userId, viewedAt: viewTimestamp } }
+          });
+        }
       }
 
       res.status(200).json({
