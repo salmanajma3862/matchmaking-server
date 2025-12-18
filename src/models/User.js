@@ -167,6 +167,22 @@ const userSchema = new mongoose.Schema(
     blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 
     // ------------------------------------------------------------------
+    // PROFILE VIEW TRACKING (Premium Feature)
+    // ------------------------------------------------------------------
+    profileViewers: [
+      {
+        viewerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        viewedAt: { type: Date, default: Date.now },
+      },
+    ],
+    viewedProfiles: [
+      {
+        viewedUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        viewedAt: { type: Date, default: Date.now },
+      },
+    ],
+
+    // ------------------------------------------------------------------
     // CONVERSATIONS / CHAT ANALYTICS
     // ------------------------------------------------------------------
     conversations: [

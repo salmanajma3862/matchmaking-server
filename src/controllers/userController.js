@@ -385,10 +385,12 @@ class UserController {
 
   /**
    * GET USER PROFILE - Get user profile by ID
+   * Also records profile view when viewing another user's profile
    */
   async getUserProfile(req, res) {
     try {
       const { userId } = req.params;
+      const viewerId = req.user?.userId; // The logged-in user viewing the profile
 
       console.log('👤 Fetching profile for user:', userId);
 
@@ -411,6 +413,33 @@ class UserController {
         });
       }
 
+      // Record profile view if viewer is viewing someone else's profile
+      if (viewerId && viewerId !== userId) {
+        console.log(`👁️ Recording profile view: ${viewerId} viewed ${userId}`);
+
+        const viewTimestamp = new Date();
+
+        // Update viewed user's profileViewers array (who viewed their profile)
+        // Use $pull then $push to update timestamp if already exists (upsert-like behavior)
+        await User.findByIdAndUpdate(userId, {
+          $pull: { profileViewers: { viewerId: viewerId } }
+        });
+        await User.findByIdAndUpdate(userId, {
+          $push: { profileViewers: { viewerId: viewerId, viewedAt: viewTimestamp } },
+          $inc: { profileViews: 1 }
+        });
+
+        // Update viewer's viewedProfiles array (profiles they have viewed)
+        await User.findByIdAndUpdate(viewerId, {
+          $pull: { viewedProfiles: { viewedUserId: userId } }
+        });
+        await User.findByIdAndUpdate(viewerId, {
+          $push: { viewedProfiles: { viewedUserId: userId, viewedAt: viewTimestamp } }
+        });
+
+        console.log('✅ Profile view recorded');
+      }
+
       res.status(200).json({
         success: true,
         data: sanitizeUserData(user),
@@ -420,6 +449,160 @@ class UserController {
       res.status(500).json({
         success: false,
         message: 'Failed to fetch user profile',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
+    }
+  }
+
+  /**
+   * GET PROFILE VIEWERS - Get list of users who viewed my profile (Premium Feature)
+   */
+  async getProfileViewers(req, res) {
+    try {
+      const userId = req.user.userId;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 20;
+
+      console.log(`👁️ Fetching profile viewers for user: ${userId}`);
+
+      // Get the current user to check premium status
+      const currentUser = await User.findById(userId);
+      if (!currentUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      // Check if user is premium
+      if (!currentUser.isPremium) {
+        return res.status(403).json({
+          success: false,
+          message: 'This feature is available for premium users only',
+          code: 'PREMIUM_REQUIRED',
+        });
+      }
+
+      // Get viewers with pagination (most recent first)
+      const viewers = await User.findById(userId)
+        .select('profileViewers')
+        .populate({
+          path: 'profileViewers.viewerId',
+          select: 'name photos city country age isOnline lastSeen',
+        });
+
+      if (!viewers || !viewers.profileViewers) {
+        return res.status(200).json({
+          success: true,
+          data: [],
+          total: 0,
+          page,
+          limit,
+        });
+      }
+
+      // Sort by viewedAt (most recent first) and paginate
+      const sortedViewers = viewers.profileViewers
+        .sort((a, b) => new Date(b.viewedAt) - new Date(a.viewedAt))
+        .slice((page - 1) * limit, page * limit)
+        .map(v => ({
+          user: sanitizeUserData(v.viewerId),
+          viewedAt: v.viewedAt,
+        }))
+        .filter(v => v.user !== null); // Filter out deleted users
+
+      console.log(`✅ Found ${sortedViewers.length} profile viewers`);
+
+      res.status(200).json({
+        success: true,
+        data: sortedViewers,
+        total: viewers.profileViewers.length,
+        page,
+        limit,
+        hasMore: viewers.profileViewers.length > page * limit,
+      });
+    } catch (error) {
+      console.error('❌ Get profile viewers error:', error.message);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch profile viewers',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
+    }
+  }
+
+  /**
+   * GET VIEWED PROFILES - Get list of profiles I have viewed (Premium Feature)
+   */
+  async getViewedProfiles(req, res) {
+    try {
+      const userId = req.user.userId;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 20;
+
+      console.log(`👁️ Fetching viewed profiles for user: ${userId}`);
+
+      // Get the current user to check premium status
+      const currentUser = await User.findById(userId);
+      if (!currentUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      // Check if user is premium
+      if (!currentUser.isPremium) {
+        return res.status(403).json({
+          success: false,
+          message: 'This feature is available for premium users only',
+          code: 'PREMIUM_REQUIRED',
+        });
+      }
+
+      // Get viewed profiles with pagination (most recent first)
+      const userWithViewed = await User.findById(userId)
+        .select('viewedProfiles')
+        .populate({
+          path: 'viewedProfiles.viewedUserId',
+          select: 'name photos city country age isOnline lastSeen',
+        });
+
+      if (!userWithViewed || !userWithViewed.viewedProfiles) {
+        return res.status(200).json({
+          success: true,
+          data: [],
+          total: 0,
+          page,
+          limit,
+        });
+      }
+
+      // Sort by viewedAt (most recent first) and paginate
+      const sortedViewed = userWithViewed.viewedProfiles
+        .sort((a, b) => new Date(b.viewedAt) - new Date(a.viewedAt))
+        .slice((page - 1) * limit, page * limit)
+        .map(v => ({
+          user: sanitizeUserData(v.viewedUserId),
+          viewedAt: v.viewedAt,
+        }))
+        .filter(v => v.user !== null); // Filter out deleted users
+
+      console.log(`✅ Found ${sortedViewed.length} viewed profiles`);
+
+      res.status(200).json({
+        success: true,
+        data: sortedViewed,
+        total: userWithViewed.viewedProfiles.length,
+        page,
+        limit,
+        hasMore: userWithViewed.viewedProfiles.length > page * limit,
+      });
+    } catch (error) {
+      console.error('❌ Get viewed profiles error:', error.message);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch viewed profiles',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }

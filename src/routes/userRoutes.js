@@ -17,6 +17,13 @@ router.post(
 // Get recommended users feed
 router.get('/feed', authenticate, userController.getFeed);
 
+// Profile View Tracking (Premium Features)
+// Get list of users who viewed my profile
+router.get('/profile/viewers', authenticate, userController.getProfileViewers);
+
+// Get list of profiles I have viewed
+router.get('/profile/viewed', authenticate, userController.getViewedProfiles);
+
 // Get user profile by ID
 router.get('/profile/:userId', authenticate, userController.getUserProfile);
 
